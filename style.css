@@ -290,8 +290,18 @@ body::after {
     font-size: 72px;
     font-weight: 900;
     line-height: 1.1;
-    margin-bottom: 32px;
+    margin-bottom: 20px;
     letter-spacing: -2px;
+    position: relative;
+    z-index: 1;
+}
+
+.hero-subtitle {
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--light-green);
+    margin-bottom: 32px;
+    letter-spacing: -0.5px;
     position: relative;
     z-index: 1;
 }
@@ -337,8 +347,8 @@ body::after {
 
 .btn-secondary {
     background: transparent;
-    color: var(--black);
-    border: 1px solid #E5E5E5;
+    color: #FFFFFF;
+    border: 1px solid var(--light-green);
 }
 
 .btn-secondary:hover {
@@ -1043,6 +1053,10 @@ body::after {
         letter-spacing: -1px;
     }
 
+    .hero-subtitle {
+        font-size: 20px;
+    }
+
     .hero-desc {
         font-size: 16px;
     }
@@ -1207,6 +1221,10 @@ body::after {
 @media (max-width: 480px) {
     .hero h1 {
         font-size: 32px;
+    }
+
+    .hero-subtitle {
+        font-size: 18px;
     }
 
     .badge {
