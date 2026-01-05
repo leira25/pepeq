@@ -7,7 +7,7 @@ const Hero = () => {
     <section className="hero">
       <div className="container">
         <div className="hero-content">
-          <h1>$PEPIQ<br />x402</h1>
+          <h1>PEPE IQ<br />x402</h1>
           <p className="hero-desc">AI chat agent meets meme culture featuring 402X integration on Solana</p>
           <div className="hero-subtitle">
             Chat with PEPIQ AI, your intelligent companion built on ElizaOS Cloud. Ask questions, get instant responses, and experience the future of AI-powered memes.
