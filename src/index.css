@@ -662,6 +662,8 @@ body::after {
     width: 100%;
     margin-top: 8px;
     cursor: not-allowed;
+    display: flex;
+    justify-content: center;
 }
 
 .swap-footer {
