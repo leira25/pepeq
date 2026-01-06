@@ -1,20 +1,20 @@
 import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRocket } from '@fortawesome/free-solid-svg-icons';
+import { faRobot } from '@fortawesome/free-solid-svg-icons';
 
 const Hero = () => {
   return (
     <section className="hero">
       <div className="container">
         <div className="hero-content">
-          <h1>PEPE IQ<br />x402</h1>
+          <h1>PEPE IQ<br />402x</h1>
           <p className="hero-desc">AI chat agent meets meme culture featuring 402X integration on Solana</p>
           <div className="hero-subtitle">
             Chat with PEPIQ AI, your intelligent companion built on ElizaOS Cloud. Ask questions, get instant responses, and experience the future of AI-powered memes.
           </div>
           <div className="hero-actions">
             <a href="#buy" className="btn btn-primary">BUY $PEPIQ</a>
-            <a href="#about" className="btn btn-secondary"> PEPIQ SIGNAL<FontAwesomeIcon icon={faRocket} /></a>
+            <a href="https://www.elizacloud.ai/dashboard/chat?characterId=2edfdf0f-8069-4e7e-a6d6-d7b39487b9bc" className="btn btn-secondary"> PEPIQ SIGNAL<FontAwesomeIcon icon={faRobot} /></a>
           </div>
         </div>
         <div className="hero-swap">
