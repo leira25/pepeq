@@ -4,7 +4,7 @@ const CTASection = () => {
   const [copied, setCopied] = useState(false);
 
   const copyCA = () => {
-    navigator.clipboard.writeText('SOON').then(() => {
+    navigator.clipboard.writeText('E5f6YvS1d3LuSmybcqp79HtwpyBj8WecdqnkBmfZpump').then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -32,7 +32,7 @@ const CTASection = () => {
         <div className="ca-box">
           <label>Contract Address</label>
           <div className="ca-input-wrapper">
-            <input type="text" id="ca" value="SOON" readOnly />
+            <input type="text" id="ca" value="E5f6YvS1d3LuSmybcqp79HtwpyBj8WecdqnkBmfZpump" readOnly />
             <button onClick={copyCA}>
               {copied ? (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
