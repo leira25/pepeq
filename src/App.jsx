@@ -68,7 +68,7 @@ function App() {
       />
       <ImageTextSection
         reverse
-        imgSrc="/assets/banner2.jpg"
+        imgSrc="/assets/banner2.png"
         textLabel="Community Driven"
         title="Built for the People"
         paragraphs={[
