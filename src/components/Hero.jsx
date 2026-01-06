@@ -42,7 +42,7 @@ const Hero = () => {
           </div>
           <div className="hero-actions">
             <a href="#buy" className="btn btn-primary">BUY $PEPIQ</a>
-            <a href="https://www.elizacloud.ai/dashboard/chat?characterId=2edfdf0f-8069-4e7e-a6d6-d7b39487b9bc" className="btn btn-secondary"> PEPIQ SIGNAL<FontAwesomeIcon icon={faRobot} /></a>
+            <span style={{cursor: "not-allowed"}} className="btn btn-secondary"> PEPIQ SIGNAL (SOON)<FontAwesomeIcon icon={faRobot} /></span>
           </div>
         </div>
         <div className="hero-swap">
