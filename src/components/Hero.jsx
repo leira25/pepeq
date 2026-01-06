@@ -41,7 +41,7 @@ const Hero = () => {
             Chat with PEPIQ AI, your intelligent companion built on ElizaOS Cloud. Ask questions, get instant responses, and experience the future of AI-powered memes.
           </div>
           <div className="hero-actions">
-            <a href="#buy" className="btn btn-primary">BUY $PEPIQ</a>
+            <a href="https://pump.fun/coin/E5f6YvS1d3LuSmybcqp79HtwpyBj8WecdqnkBmfZpump" className="btn btn-primary">BUY $PEPIQ</a>
             <span style={{cursor: "not-allowed"}} className="btn btn-secondary"> PEPIQ SIGNAL (SOON)<FontAwesomeIcon icon={faRobot} /></span>
           </div>
         </div>

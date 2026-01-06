@@ -13,7 +13,7 @@ const Footer = ({ scrollToSection }) => {
           </div>
           <div className="footer-col">
             <h4>Community</h4>
-            <a href="https://t.me/PEPIQ_SOL" target="_blank" rel="noopener noreferrer">Telegram</a>
+            {/* <a href="https://t.me/PEPIQ_SOL" target="_blank" rel="noopener noreferrer">Telegram</a> */}
             <a href="https://x.com/pepiqx402/status/2008150143049338968?s=46" target="_blank" rel="noopener noreferrer">Twitter/X</a>
           </div>
           <div className="footer-col">
