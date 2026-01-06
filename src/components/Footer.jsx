@@ -18,7 +18,7 @@ const Footer = ({ scrollToSection }) => {
           </div>
           <div className="footer-col">
             <h4>Contract</h4>
-            <a href="#buy" onClick={(e) => { e.preventDefault(); scrollToSection('buy'); }}>CA: E5f6YvS1d3LuSmybcqp79HtwpyBj8WecdqnkBmfZpump</a>
+            <a href="#buy" onClick={(e) => { e.preventDefault(); scrollToSection('buy'); }}>CA: SOON</a>
           </div>
         </div>
         <div className="footer-bottom">

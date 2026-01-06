@@ -8,7 +8,7 @@ const Hero = () => {
   const [copied, setCopied] = useState(false);
 
   const copyCA = () => {
-    navigator.clipboard.writeText('E5f6YvS1d3LuSmybcqp79HtwpyBj8WecdqnkBmfZpump').then(() => {
+    navigator.clipboard.writeText('SOON').then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -21,7 +21,7 @@ const Hero = () => {
           <div className="ca-box">
           <label>Contract Address</label>
           <div className="ca-input-wrapper">
-            <input type="text" id="ca" value="E5f6YvS1d3LuSmybcqp79HtwpyBj8WecdqnkBmfZpump" readOnly />
+            <input type="text" id="ca" value="SOON" readOnly />
             <button onClick={copyCA}>
               {copied ? (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -41,7 +41,7 @@ const Hero = () => {
             Chat with PEPIQ AI, your intelligent companion built on ElizaOS Cloud. Ask questions, get instant responses, and experience the future of AI-powered memes.
           </div>
           <div className="hero-actions">
-            <a href="https://pump.fun/coin/E5f6YvS1d3LuSmybcqp79HtwpyBj8WecdqnkBmfZpump" className="btn btn-primary">BUY $PEPIQ</a>
+            <a href="https://pump.fun/coin/SOON" className="btn btn-primary">BUY $PEPIQ</a>
             <span style={{cursor: "not-allowed"}} className="btn btn-secondary"> PEPIQ SIGNAL (SOON)<FontAwesomeIcon icon={faRobot} /></span>
           </div>
         </div>
