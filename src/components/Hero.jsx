@@ -1,13 +1,41 @@
-import React from 'react';
+import React, { useState }  from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRobot } from '@fortawesome/free-solid-svg-icons';
 
+
+
 const Hero = () => {
+  const [copied, setCopied] = useState(false);
+
+  const copyCA = () => {
+    navigator.clipboard.writeText('SOON').then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
   return (
     <section className="hero">
       <div className="container">
         <div className="hero-content">
           <h1>PEPE IQ<br />x402</h1>
+          <div className="ca-box">
+          <label>Contract Address</label>
+          <div className="ca-input-wrapper">
+            <input type="text" id="ca" value="SOON" readOnly />
+            <button onClick={copyCA}>
+              {copied ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              )}
+            </button>
+          </div>
+        </div>
           <p className="hero-desc">AI chat agent meets meme culture featuring x402 integration on Solana</p>
           <div className="hero-subtitle">
             Chat with PEPIQ AI, your intelligent companion built on ElizaOS Cloud. Ask questions, get instant responses, and experience the future of AI-powered memes.
