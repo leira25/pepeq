@@ -1,32 +1,25 @@
-// Hero.jsx - CORRECTED for Current Jupiter Ultra API (January 2026)
-// Base URL: https://api.jup.ag/ultra/v1 (lite-api.jup.ag is deprecated)
-// /order is GET with query params (not POST)
-// Requires x-api-key header
-// Flow: GET /order (with taker) → sign tx → POST /execute
-
-import React, { useState, useEffect, useCallback } from 'react';
+// Hero.jsx - Working Implementation Based on USDARK Reference
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { VersionedTransaction } from '@solana/web3.js';
-import axios from 'axios';
+import { PublicKey, VersionedTransaction, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { getAssociatedTokenAddressSync } from '@solana/spl-token';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRobot } from '@fortawesome/free-solid-svg-icons';
+import { faRobot, faChevronDown, faSearch } from '@fortawesome/free-solid-svg-icons';
 
 // Constants
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
-const PEPIQ_MINT = 'E5f6YvS1d3LuSmybcqp79HtwpyBj8WecdqnkBmfZpump';
-
-// Current Ultra API base (lite-api deprecated Jan 31 2026)
-const JUPITER_API = 'https://api.jup.ag/ultra/v1';
-
-// Your full API key (keep secret - use .env in prod!)
-const YOUR_API_KEY = 'cc40b0a5-00e2-4e41-863c-f5471fe2b3ee'; // <-- Full key here
-
-const MIN_SWAP_AMOUNT = 0.01;
+const DEFAULT_PEPIQ_MINT = 'E5f6YvS1d3LuSmybcqp79HtwpyBj8WecdqnkBmfZpump';
+const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 const Hero = () => {
-  const { publicKey, connected, signTransaction } = useWallet();
+  const wallet = useWallet();
   const { connection } = useConnection();
+  
+  // States
+  const [allTokens, setAllTokens] = useState([]);
+  const [inputToken, setInputToken] = useState(null);
+  const [outputToken, setOutputToken] = useState(null);
   const [amountIn, setAmountIn] = useState('');
   const [amountOut, setAmountOut] = useState('');
   const [quote, setQuote] = useState(null);
@@ -34,143 +27,284 @@ const Hero = () => {
   const [txLoading, setTxLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [slippage, setSlippage] = useState(0.5);
+  const [slippage, setSlippage] = useState(1);
+  const [balance, setBalance] = useState(0);
+  const [tokenBalance, setTokenBalance] = useState(0);
+  
+  // Dropdown states
+  const [showInputTokenSearch, setShowInputTokenSearch] = useState(false);
+  const [showOutputTokenSearch, setShowOutputTokenSearch] = useState(false);
+  const [inputSearchQuery, setInputSearchQuery] = useState('');
+  const [outputSearchQuery, setOutputSearchQuery] = useState('');
+  
+  const inputDropdownRef = useRef(null);
+  const outputDropdownRef = useRef(null);
+  const timeoutRef = useRef(null);
+
+  // Popular tokens (always available)
+  const getPopularTokens = () => [
+    {
+      address: SOL_MINT,
+      symbol: 'SOL',
+      name: 'Solana',
+      decimals: 9,
+      logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png'
+    },
+    {
+      address: USDC_MINT,
+      symbol: 'USDC',
+      name: 'USD Coin',
+      decimals: 6,
+      logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png'
+    },
+    {
+      address: DEFAULT_PEPIQ_MINT,
+      symbol: 'PEPIQ',
+      name: 'PEPE IQ',
+      decimals: 6,
+      logoURI: '/assets/logo.png'
+    }
+  ];
+
+  // Load tokens
+  useEffect(() => {
+    const loadTokens = async () => {
+      try {
+        // Use Jupiter's v2 token list API
+        const response = await fetch('https://lite-api.jup.ag/tokens/v2/tag?query=verified');
+        
+        if (response.ok) {
+          const tokens = await response.json();
+          const tokenList = Array.isArray(tokens) ? tokens : [];
+          
+          // Add PEPIQ if not in list
+          const pepiqExists = tokenList.some(t => t.address === DEFAULT_PEPIQ_MINT);
+          if (!pepiqExists) {
+            tokenList.push(getPopularTokens()[2]);
+          }
+          
+          setAllTokens(tokenList);
+          
+          const sol = tokenList.find(t => t.address === SOL_MINT) || getPopularTokens()[0];
+          const pepiq = tokenList.find(t => t.address === DEFAULT_PEPIQ_MINT) || getPopularTokens()[2];
+          
+          setInputToken(sol);
+          setOutputToken(pepiq);
+        } else {
+          throw new Error('API failed');
+        }
+      } catch (err) {
+        console.error('Token list error:', err);
+        const fallback = getPopularTokens();
+        setAllTokens(fallback);
+        setInputToken(fallback[0]);
+        setOutputToken(fallback[2]);
+      }
+    };
+    loadTokens();
+  }, []);
+
+  // Fetch balances
+  useEffect(() => {
+    const fetchBalances = async () => {
+      if (wallet.connected && wallet.publicKey) {
+        try {
+          const solBalance = (await connection.getBalance(wallet.publicKey)) / LAMPORTS_PER_SOL;
+          setBalance(solBalance);
+        } catch (e) {
+          console.error('Balance error:', e);
+          setBalance(0);
+        }
+        
+        if (outputToken && outputToken.address !== SOL_MINT) {
+          try {
+            const mint = new PublicKey(outputToken.address);
+            const ata = getAssociatedTokenAddressSync(mint, wallet.publicKey);
+            const tokenBal = await connection.getTokenAccountBalance(ata);
+            setTokenBalance(tokenBal.value.uiAmount || 0);
+          } catch (e) {
+            setTokenBalance(0);
+          }
+        }
+      }
+    };
+    fetchBalances();
+    const interval = setInterval(fetchBalances, 30000);
+    return () => clearInterval(interval);
+  }, [wallet.connected, connection, wallet.publicKey, outputToken]);
+
+  // Close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (inputDropdownRef.current && !inputDropdownRef.current.contains(event.target)) {
+        setShowInputTokenSearch(false);
+      }
+      if (outputDropdownRef.current && !outputDropdownRef.current.contains(event.target)) {
+        setShowOutputTokenSearch(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const copyCA = () => {
-    navigator.clipboard.writeText(PEPIQ_MINT).then(() => {
+    navigator.clipboard.writeText(outputToken?.address || DEFAULT_PEPIQ_MINT).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
   };
 
-  // Fetch quote - Ultra /quote works with GET + api key header
-  const fetchQuote = useCallback(async () => {
+  const filterTokens = (query) => {
+    if (!query) return allTokens.slice(0, 50);
+    const q = query.toLowerCase();
+    return allTokens.filter(t => 
+      t.symbol?.toLowerCase().includes(q) || 
+      t.name?.toLowerCase().includes(q) ||
+      t.address?.toLowerCase().includes(q)
+    ).slice(0, 50);
+  };
+
+  // Get quote - using USDARK approach
+  const getQuoteInternal = async (amount) => {
+    if (!amount || !wallet.publicKey || !inputToken || !outputToken) return;
     setErrorMessage('');
-    if (!connected || !amountIn || parseFloat(amountIn) <= 0) {
-      setAmountOut('');
-      setQuote(null);
-      return;
-    }
-    if (parseFloat(amountIn) < MIN_SWAP_AMOUNT) {
-      setErrorMessage(`Minimum swap amount is ${MIN_SWAP_AMOUNT} SOL`);
-      setAmountOut('');
-      setQuote(null);
-      return;
-    }
-
-    setLoading(true);
+    
     try {
-      const amount = Math.floor(parseFloat(amountIn) * 1e9);
-      const slippageBps = Math.floor(slippage * 100);
-
+      const inputMint = new PublicKey(inputToken.address);
+      const outputMint = new PublicKey(outputToken.address);
+      const inputDecimals = inputToken.decimals || 9;
+      const outputDecimals = outputToken.decimals || 6;
+      
+      const amountInLamports = Math.floor(parseFloat(amount) * (10 ** inputDecimals));
+      
+      if (amountInLamports <= 0) throw new Error('Invalid amount');
+      
       const params = new URLSearchParams({
-        inputMint: SOL_MINT,
-        outputMint: PEPIQ_MINT,
-        amount: amount.toString(),
-        slippageBps: slippageBps.toString(),
-      });
-
-      const { data } = await axios.get(`${JUPITER_API}/quote?${params}`, {
-        headers: { 'x-api-key': YOUR_API_KEY },
-      });
-
-      if (!data || !data.outAmount) throw new Error('No route found');
-
-      const decimals = 6;
-      const outputAmount = (BigInt(data.outAmount) / BigInt(10 ** decimals)).toString();
-
-      setAmountOut(outputAmount);
-      setQuote(data);
-    } catch (err) {
-      console.error('Quote error:', err);
-      setAmountOut('');
-      setQuote(null);
-      setErrorMessage('No route/liquidity found. Token may have no liquidity or be rugged.');
-    } finally {
-      setLoading(false);
-    }
-  }, [amountIn, connected, slippage]);
-
-  useEffect(() => {
-    const debounce = setTimeout(() => fetchQuote(), 500);
-    return () => clearTimeout(debounce);
-  }, [fetchQuote]);
-
-  // Execute swap: GET /order → sign → POST /execute
-  const executeSwap = async () => {
-    if (!connected || !quote || !publicKey || !signTransaction) return;
-    if (parseFloat(amountIn) < MIN_SWAP_AMOUNT) {
-      setErrorMessage(`Minimum swap amount is ${MIN_SWAP_AMOUNT} SOL`);
-      return;
-    }
-
-    setTxLoading(true);
-    setErrorMessage('');
-
-    try {
-      // Step 1: GET /order with params (including taker)
-      const params = new URLSearchParams({
-        inputMint: SOL_MINT,
-        outputMint: PEPIQ_MINT,
-        amount: quote.inAmount,
+        inputMint: inputMint.toString(),
+        outputMint: outputMint.toString(),
+        amount: amountInLamports.toString(),
         slippageBps: Math.floor(slippage * 100).toString(),
-        taker: publicKey.toBase58(),
-        wrapAndUnwrapSol: 'true',
       });
+      
+      const quoteRes = await fetch(`https://lite-api.jup.ag/swap/v1/quote?${params}`);
+      
+      if (!quoteRes.ok) {
+        const errorText = await quoteRes.text();
+        throw new Error(`Quote failed: ${quoteRes.status} - ${errorText}`);
+      }
+      
+      const quoteData = await quoteRes.json();
+      const outAmount = parseFloat(quoteData.outAmount) / (10 ** outputDecimals);
+      
+      setAmountOut(outAmount.toFixed(6));
+      return quoteData;
+    } catch (e) {
+      console.error('Quote error:', e);
+      setErrorMessage(e.message || 'No route found');
+      setAmountOut('');
+    }
+  };
 
-      const { data: orderData } = await axios.get(`${JUPITER_API}/order?${params}`, {
-        headers: { 'x-api-key': YOUR_API_KEY },
+  // Debounced quote fetch
+  useEffect(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    if (!inputToken || !outputToken || !amountIn || !wallet.connected) {
+      setAmountOut('');
+      setLoading(false);
+      return;
+    }
+    
+    timeoutRef.current = setTimeout(async () => {
+      setLoading(true);
+      await getQuoteInternal(amountIn);
+      setLoading(false);
+    }, 500);
+    
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [amountIn, inputToken, outputToken, slippage, wallet.connected]);
+
+  // Execute swap - USDARK approach
+  const executeSwap = async () => {
+    if (!wallet.connected || !amountIn || !wallet.publicKey || !inputToken || !outputToken) return;
+    
+    setErrorMessage('');
+    setTxLoading(true);
+    
+    try {
+      const inputMint = new PublicKey(inputToken.address);
+      const outputMint = new PublicKey(outputToken.address);
+      const inputDecimals = inputToken.decimals || 9;
+      
+      const amountInLamports = Math.floor(parseFloat(amountIn) * (10 ** inputDecimals));
+      
+      if (amountInLamports <= 0) throw new Error('Invalid amount');
+      
+      // Get quote
+      const params = new URLSearchParams({
+        inputMint: inputMint.toString(),
+        outputMint: outputMint.toString(),
+        amount: amountInLamports.toString(),
+        slippageBps: Math.floor(slippage * 100).toString(),
       });
-
-      if (!orderData.transaction || !orderData.requestId) {
-        throw new Error('Invalid order response');
+      
+      const quoteRes = await fetch(`https://lite-api.jup.ag/swap/v1/quote?${params}`);
+      
+      if (!quoteRes.ok) {
+        throw new Error(`Quote failed: ${quoteRes.status}`);
       }
-
-      // Step 2: Deserialize & sign transaction
-      const txBuf = Buffer.from(orderData.transaction, 'base64');
-      const transaction = VersionedTransaction.deserialize(txBuf);
-      const signedTx = await signTransaction(transaction);
-      const signedBase64 = Buffer.from(signedTx.serialize()).toString('base64');
-
-      // Step 3: POST /execute - Jupiter lands the tx (fast + often gasless)
-      const { data: executeData } = await axios.post(
-        `${JUPITER_API}/execute`,
-        {
-          signedTransaction: signedBase64,
-          requestId: orderData.requestId,
-        },
-        {
-          headers: {
-            'x-api-key': YOUR_API_KEY,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (executeData.status !== 'Success') {
-        throw new Error(executeData.error || 'Execution failed');
+      
+      const quoteData = await quoteRes.json();
+      
+      // Get swap transaction
+      const swapRes = await fetch('https://lite-api.jup.ag/swap/v1/swap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quoteResponse: quoteData,
+          userPublicKey: wallet.publicKey.toString(),
+          wrapAndUnwrapSol: true,
+          dynamicComputeUnitLimit: true,
+          prioritizationFeeLamports: 'auto',
+        }),
+      });
+      
+      if (!swapRes.ok) {
+        throw new Error(`Swap failed: ${swapRes.status}`);
       }
-
-      alert(`Swap successful! 🎉\n\nSignature: ${executeData.signature}\nView: https://solscan.io/tx/${executeData.signature}`);
-
-      // Reset
+      
+      const { swapTransaction } = await swapRes.json();
+      const swapTransactionBuf = Uint8Array.from(atob(swapTransaction), (c) => c.charCodeAt(0));
+      const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
+      
+      const signedTx = await wallet.signTransaction(transaction);
+      const txid = await connection.sendRawTransaction(signedTx.serialize(), {
+        skipPreflight: false,
+        preflightCommitment: 'confirmed',
+      });
+      
+      await connection.confirmTransaction(txid, 'confirmed');
+      
+      alert(`✅ Swap Successful!\n\nView: https://solscan.io/tx/${txid}`);
+      
       setAmountIn('');
       setAmountOut('');
-      setQuote(null);
-    } catch (err) {
-      console.error('Swap error:', err);
-      if (err.message?.includes('User rejected')) {
-        setErrorMessage('Transaction rejected by user');
-      } else {
-        setErrorMessage('Swap failed – likely no liquidity. Try higher slippage or check token.');
-      }
+    } catch (e) {
+      console.error('Swap error:', e);
+      setErrorMessage(e.message || 'Swap failed. Try increasing slippage.');
     } finally {
       setTxLoading(false);
     }
   };
 
-  const pricePerSol = amountIn && amountOut && parseFloat(amountIn) > 0
-    ? (parseFloat(amountOut) / parseFloat(amountIn)).toFixed(4)
+  const pricePerToken = amountIn && amountOut && parseFloat(amountIn) > 0
+    ? (parseFloat(amountOut) / parseFloat(amountIn)).toFixed(6)
     : '-';
 
   const minReceived = amountOut
@@ -179,64 +313,168 @@ const Hero = () => {
 
   return (
     <section className="hero">
-      {/* UI unchanged - same as before */}
       <div className="container">
         <div className="hero-content">
           <h1>PEPE IQ<br />x402</h1>
+          
           <div className="ca-box">
             <label>Contract Address</label>
             <div className="ca-input-wrapper">
-              <input type="text" value={PEPIQ_MINT} readOnly />
+              <input type="text" value={outputToken?.address || DEFAULT_PEPIQ_MINT} readOnly />
               <button onClick={copyCA}>{copied ? '✓' : 'Copy'}</button>
             </div>
           </div>
+          
           <p className="hero-desc">
             AI chat agent meets meme culture featuring x402 integration on Solana
           </p>
+          
           <div className="hero-subtitle">
             Chat with PEPIQ AI, your intelligent companion built on ElizaOS Cloud...
           </div>
+          
           <div className="hero-actions">
             <a href="#swap" className="btn btn-primary">BUY $PEPIQ</a>
             <a style={{ cursor: 'not-allowed' }} className="btn btn-secondary">
-              PEPIQ SIGNAL (SOON)<FontAwesomeIcon icon={faRobot} />
+              PEPIQ SIGNAL (SOON) <FontAwesomeIcon icon={faRobot} />
             </a>
           </div>
         </div>
-        <div className="hero-swap">
+
+        <div className="hero-swap" id="swap">
           <div className="swap-box">
             <div className="swap-header">
-              <h3>Swap SOL → PEPIQ</h3>
-              <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>Powered by Jupiter Aggregator</span>
+              <h3>Swap Tokens</h3>
+              <span className="powered-by">Jupiter</span>
             </div>
+
             <div style={{ padding: '0 1rem', marginBottom: '1rem' }}>
               <WalletMultiButton style={{ width: '100%', height: '48px', borderRadius: '12px' }} />
             </div>
+
             <div className="swap-form">
               <div className="swap-input-group">
                 <div className="swap-input from">
-                  <div className="token-select">
-                    <img src="/assets/solana-logo.png" alt="SOL" />
-                    <span>SOL</span>
+                  <div className="token-select-container" ref={inputDropdownRef}>
+                    <button 
+                      className="token-select"
+                      onClick={() => setShowInputTokenSearch(!showInputTokenSearch)}
+                    >
+                      {inputToken?.logoURI && (
+                        <img src={inputToken.logoURI} alt={inputToken.symbol} onError={(e) => e.target.style.display = 'none'} />
+                      )}
+                      <span>{inputToken?.symbol || 'Select'}</span>
+                      <FontAwesomeIcon icon={faChevronDown} className="dropdown-arrow" />
+                    </button>
+                    
+                    {showInputTokenSearch && (
+                      <div className="token-dropdown">
+                        <div className="token-search">
+                          <FontAwesomeIcon icon={faSearch} className="search-icon" />
+                          <input
+                            type="text"
+                            placeholder="Search..."
+                            value={inputSearchQuery}
+                            onChange={(e) => setInputSearchQuery(e.target.value)}
+                            autoFocus
+                          />
+                        </div>
+                        <div className="token-list">
+                          {filterTokens(inputSearchQuery).map((token) => (
+                            <button
+                              key={token.address}
+                              className="token-item"
+                              onClick={() => {
+                                setInputToken(token);
+                                setShowInputTokenSearch(false);
+                                setInputSearchQuery('');
+                              }}
+                            >
+                              {token.logoURI && <img src={token.logoURI} alt={token.symbol} onError={(e) => e.target.style.display = 'none'} />}
+                              <div className="token-info">
+                                <span className="token-symbol">{token.symbol}</span>
+                                <span className="token-name">{token.name}</span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
+                  
                   <input
                     type="number"
                     placeholder="0.0"
                     value={amountIn}
                     onChange={(e) => setAmountIn(e.target.value)}
-                    disabled={!connected}
-                    min={MIN_SWAP_AMOUNT}
-                    step="0.01"
+                    disabled={!wallet.connected}
+                    step="0.001"
                   />
                 </div>
+
                 <div className="swap-arrow-container">
-                  <button className="swap-arrow">↓</button>
+                  <button 
+                    className="swap-arrow"
+                    onClick={() => {
+                      const temp = inputToken;
+                      setInputToken(outputToken);
+                      setOutputToken(temp);
+                      setAmountIn('');
+                      setAmountOut('');
+                    }}
+                  >
+                    ↓
+                  </button>
                 </div>
+
                 <div className="swap-input to">
-                  <div className="token-select">
-                    <img src="/assets/logo.png" alt="$PEPIQ" />
-                    <span>$PEPIQ</span>
+                  <div className="token-select-container" ref={outputDropdownRef}>
+                    <button 
+                      className="token-select"
+                      onClick={() => setShowOutputTokenSearch(!showOutputTokenSearch)}
+                    >
+                      {outputToken?.logoURI && (
+                        <img src={outputToken.logoURI} alt={outputToken.symbol} onError={(e) => e.target.style.display = 'none'} />
+                      )}
+                      <span>{outputToken?.symbol || 'Select'}</span>
+                      <FontAwesomeIcon icon={faChevronDown} className="dropdown-arrow" />
+                    </button>
+                    
+                    {showOutputTokenSearch && (
+                      <div className="token-dropdown">
+                        <div className="token-search">
+                          <FontAwesomeIcon icon={faSearch} className="search-icon" />
+                          <input
+                            type="text"
+                            placeholder="Search..."
+                            value={outputSearchQuery}
+                            onChange={(e) => setOutputSearchQuery(e.target.value)}
+                            autoFocus
+                          />
+                        </div>
+                        <div className="token-list">
+                          {filterTokens(outputSearchQuery).map((token) => (
+                            <button
+                              key={token.address}
+                              className="token-item"
+                              onClick={() => {
+                                setOutputToken(token);
+                                setShowOutputTokenSearch(false);
+                                setOutputSearchQuery('');
+                              }}
+                            >
+                              {token.logoURI && <img src={token.logoURI} alt={token.symbol} onError={(e) => e.target.style.display = 'none'} />}
+                              <div className="token-info">
+                                <span className="token-symbol">{token.symbol}</span>
+                                <span className="token-name">{token.name}</span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
+                  
                   <input
                     type="text"
                     placeholder="0.0"
@@ -245,50 +483,64 @@ const Hero = () => {
                   />
                 </div>
               </div>
+
               <div className="swap-details">
                 {errorMessage && (
-                  <div style={{ color: '#ff4444', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  <div className="error-message">
                     ⚠️ {errorMessage}
                   </div>
                 )}
+                
                 <div className="detail-item">
                   <span>Price</span>
-                  <span>{pricePerSol} $PEPIQ per SOL</span>
+                  <span>{pricePerToken} per {inputToken?.symbol}</span>
                 </div>
+                
                 <div className="detail-item">
                   <span>Slippage</span>
                   <select
                     value={slippage}
                     onChange={(e) => setSlippage(parseFloat(e.target.value))}
-                    style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer' }}
+                    className="slippage-select"
                   >
-                    <option value="0.1">0.1%</option>
                     <option value="0.5">0.5%</option>
                     <option value="1">1%</option>
                     <option value="3">3%</option>
+                    <option value="5">5%</option>
+                    <option value="10">10%</option>
                   </select>
                 </div>
+                
                 <div className="detail-item">
                   <span>Min Received</span>
-                  <span>{minReceived} $PEPIQ</span>
+                  <span>{minReceived} {outputToken?.symbol}</span>
                 </div>
+                
+                {wallet.connected && (
+                  <div className="detail-item">
+                    <span>Balance</span>
+                    <span>{balance.toFixed(4)} SOL</span>
+                  </div>
+                )}
               </div>
-              {connected ? (
+
+              {wallet.connected ? (
                 <button
                   className="btn btn-primary swap-btn"
                   onClick={executeSwap}
-                  disabled={loading || txLoading || !quote || !!errorMessage}
+                  disabled={loading || txLoading || !amountOut || !!errorMessage}
                 >
-                  {txLoading ? 'Swapping...' : loading ? 'Getting Quote...' : 'Swap'}
+                  {txLoading ? 'Swapping...' : loading ? 'Loading...' : 'Swap'}
                 </button>
               ) : (
-                <div style={{ color: '#888', textAlign: 'center', padding: '1rem' }}>
+                <div className="connect-prompt">
                   Connect wallet to swap
                 </div>
               )}
             </div>
+
             <div className="swap-footer">
-              <span className="dev-note">Powered by Jupiter • Live on Solana</span>
+              <span className="dev-note">Powered by Jupiter</span>
             </div>
           </div>
         </div>
