@@ -345,12 +345,13 @@ const Hero = () => {
           <div className="swap-box">
             <div className="swap-header">
               <h3>Swap Tokens</h3>
-              <span className="powered-by">Jupiter</span>
-            </div>
-
-            <div style={{ padding: '0 1rem', marginBottom: '1rem' }}>
+              {/* <span className="powered-by">Jupiter</span> */}
+                <div>
               <WalletMultiButton style={{ width: '100%', height: '48px', borderRadius: '12px' }} />
             </div>
+            </div>
+
+          
 
             <div className="swap-form">
               <div className="swap-input-group">
@@ -528,6 +529,7 @@ const Hero = () => {
                 <button
                   className="btn btn-primary swap-btn"
                   onClick={executeSwap}
+                  style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
                   disabled={loading || txLoading || !amountOut || !!errorMessage}
                 >
                   {txLoading ? 'Swapping...' : loading ? 'Loading...' : 'Swap'}
